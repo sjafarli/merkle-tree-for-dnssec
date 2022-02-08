@@ -113,3 +113,49 @@ def verify(root, depth, dic_vals, decommitment, debug_print=True):
             # Merge with a decommitment hash on the left
             queue += [(index // 2, hash_node(decommitment[0], hash))]
             decommitment = decommitment[1:]
+
+ ###############################Test####################################################
+
+##read preprocessed data
+df = pd.read_csv('../2021_all_ds_records.csv',skipinitialspace=True, usecols = ['TLD','RRset_DS'] )
+leaves= df.set_index('TLD').T.to_dict('list')
+
+#append random hash values to records to make leaf nodes power of 2
+m = hashlib.sha256()  
+S = 64  # number of characters in the string.
+n = len(leaves)
+if not math.log(n, 2).is_integer():
+    p = int(math.log(n, 2)//1)
+    for i in range(n, 2**(p+1)):
+        str_index = str(i)
+        ran = ''.join(random.choices(string.ascii_uppercase + string.digits, k = S))
+        leaves[str_index] = [[str(ran)]]
+
+#generate a tree out of the record leaves
+startTime = datetime.now()
+tree= make_tree(leaves)
+fin_time = datetime.now() - startTime
+print("tree generation time:", fin_time)
+print(root(tree))
+
+##sign all records by calculating authPath for each
+startTime = datetime.now()
+signatures = {}
+for i in range(0, len(leaves)):
+    dec = sign(tree,[i])
+    #signatures[i] = dec -- store the signatures
+fin_time = datetime.now() - startTime  
+print('zone_signing', fin_time)
+
+##sign a single record with an index 1
+startTime = datetime.now()
+authPath=sign(tree,[1])
+fin_time = datetime.now() - startTime
+print('t_signature', fin_time)
+
+#verify the record with the authPath calculated before
+startTime_ver = datetime.now()
+val = {1:leaves['.pl']}
+print(verify(root(tree),11,val,authPath))
+finTime_ver = datetime.now() - startTime_ver
+print('Verification time: ', finTime_ver)
